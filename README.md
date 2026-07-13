@@ -50,6 +50,7 @@ wildos/
 ├── explorfm_trainer/      # Training pipeline for ExploRFM heads (Lightning + Hydra)
 ├── visual_navigation/     # ROS 2 navigation: WildOS, baselines (LRN, ImgFrontierNav)
 ├── triangulation3d/       # Particle-filter-based 3D object triangulation
+├── graphnav_mapper/       # Graph construction from traversability map (C++)
 ├── graphnav_planner/      # Graph-based path planner (C++)
 ├── graphnav_msgs/         # ROS 2 message definitions for navigation graph
 ├── object_search_msgs/    # ROS 2 message definitions for object search
@@ -105,7 +106,7 @@ uv tool install huggingface_hub[cli]
 
 ```bash
 # From your colcon workspace (with this repo cloned/symlinked into src/)
-colcon build --packages-select graphnav_msgs object_search_msgs gps_visualization graphnav_planner triangulation3d visual_navigation
+colcon build --packages-select graphnav_msgs object_search_msgs gps_visualization graphnav_planner pose_graph_msgs graphnav_mapper triangulation3d visual_navigation
 source install/setup.bash
 ```
 
@@ -164,8 +165,9 @@ Adaptor features shape: torch.Size([1, 1152, 22, 40])
 # Launch WildOS with open-vocabulary object search
 ros2 launch visual_navigation wildos_launch.py ns:=spot1 do_object_search:=true
 
-# Launch the graph planner
+# Launch the graph planner & mapper
 ros2 launch graphnav_planner graphnav_planner.launch.yml ns:=spot1
+ros2 launch graphnav_planner graphnav_mapper.launch.yml ns:=spot1
 ```
 
 ### Launch Baselines
@@ -197,7 +199,6 @@ The following packages must be running alongside WildOS:
 - [**Elevation Mapping CuPy**](https://github.com/leggedrobotics/elevation_mapping_cupy) — GPU based local 2.5D mapping
 - [**DLIO**](https://github.com/vectr-ucla/direct_lidar_inertial_odometry) — LiDAR-inertial odometry
 - [**Nav2**](https://github.com/ros-navigation/navigation2) — local planning and control
-- **Graph Construction** - code will be released in a future update.
 
 <br>
 
@@ -211,7 +212,9 @@ The following packages must be running alongside WildOS:
 | [`visual_navigation/`](visual_navigation/) | ROS 2 navigation: WildOS pipeline, baselines (LRN, ImgFrontierNav), scoring, triangulation | [README](visual_navigation/README.md) |
 | [`triangulation3d/`](triangulation3d/) | Particle-filter-based 3D object triangulation | [README](triangulation3d/README.md) |
 | [`graphnav_planner/`](graphnav_planner/) | C++ graph-based path planner | — |
+| [`graphnav_mapper/`](graphnav_mapper/) | C++ navigation graph construction | — |
 | [`graphnav_msgs/`](graphnav_msgs/) | ROS 2 message definitions for navigation graph | — |
+| [`pose_graph_msgs/`](pose_graph_msgs/) | ROS 2 message definitions for pose graphs (used by graphnav_mapper) | — |
 | [`object_search_msgs/`](object_search_msgs/) | ROS 2 message definitions for object search | — |
 | [`gps_visualization/`](gps_visualization/) | GPS path visualization (ROS 2 C++) | — |
 
