@@ -1,0 +1,71 @@
+launch:
+  - arg:
+      name: "ns"
+      description: "Namespace of the robot"
+
+  - arg:
+      name: "use_sim_time" 
+      default: "False"
+      description: "Use simulation time"
+
+  - arg:
+      name: "remap_ros_topics_to_ns"
+      default: "True"
+      description: "Remap ros topics to namespace"
+  - arg:
+      name: "remap_tf_to_ns"
+      default: $(var remap_ros_topics_to_ns)
+      description: "Remap tf/tf_static to namespace"
+
+
+  - node:
+      pkg: "graphnav_mapper"
+      exec: "dummy_pose_graph_publisher.py"
+      name: "dummy_pose_graph_publisher"
+      output: screen
+      namespace: $(var ns)
+      remap:
+        - from: "/tf"
+          to: $(eval "'/$(var ns)/tf' if $(var remap_tf_to_ns) else '/tf'")
+        - from: "/tf_static"
+          to: $(eval "'/$(var ns)/tf_static' if $(var remap_tf_to_ns) else '/tf_static'")
+        - from: "/rosout"
+          to: $(eval "'/$(var ns)/rosout' if $(var remap_ros_topics_to_ns) else '/rosout'")
+        - from: "/parameter_events"
+          to: $(eval "'/$(var ns)/parameter_events' if $(var remap_ros_topics_to_ns) else '/parameter_events'")
+        - from: "/diagnostics"
+          to: $(eval "'/$(var ns)/diagnostics' if $(var remap_ros_topics_to_ns) else '/diagnostics'")
+      param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: frame
+          value: $(var ns)/odom
+  - node:
+      pkg: "graphnav_mapper"
+      exec: "mapper_node"
+      name: "graphnav_mapper"
+      output: screen
+      namespace: $(var ns)
+      # launch-prefix: "bash -c 'SESSION=debug-gdb-`uuidgen`; trap \"tmux kill-session -t $SESSION\" EXIT; tmux new-session -d -s $SESSION gdb -ex run --args $@; while tmux has-session -t $SESSION 2>/dev/null; do sleep 1; done' --"
+      launch-prefix: "gdb -batch --return-child-result -ex run -ex backtrace --args"
+      remap:
+        - from: "odometry"
+          to: "odom"
+        - from: "occupancy"
+          to: "local_map" # currently used in simplesim
+        - from: "traversability"
+          to: "traversability_map"
+        # namespaced default ros topics
+        - from: "/tf"
+          to: $(eval "'/$(var ns)/tf' if $(var remap_tf_to_ns) else '/tf'")
+        - from: "/tf_static"
+          to: $(eval "'/$(var ns)/tf_static' if $(var remap_tf_to_ns) else '/tf_static'")
+        - from: "/rosout"
+          to: $(eval "'/$(var ns)/rosout' if $(var remap_ros_topics_to_ns) else '/rosout'")
+        - from: "/parameter_events"
+          to: $(eval "'/$(var ns)/parameter_events' if $(var remap_ros_topics_to_ns) else '/parameter_events'")
+        - from: "/diagnostics"
+          to: $(eval "'/$(var ns)/diagnostics' if $(var remap_ros_topics_to_ns) else '/diagnostics'")
+      param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
