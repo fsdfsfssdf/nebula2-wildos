@@ -61,10 +61,11 @@ public:
   std::string my_trav_class_ = "default";
 
   // parameters frontier building
-  double explored_radius_margin_ = 0.2;
+  double explored_radius_margin_ = 0.75;
   double frontier_erase_unknown_dist_ = 0.3;
   double frontier_cell_spacing_ = 0.5;
-  double frontier_cell_max_dist_ = 4.0;
+  double frontier_cell_max_dist_ = 9.0;
+  double frontier_end_margin_ = 0.0;
   double frontier_erase_visited_duration_ = 10.0;  // seconds, erase after being visited for this long
 };
 

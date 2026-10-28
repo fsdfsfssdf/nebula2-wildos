@@ -1,5 +1,6 @@
 #include "graphnav_mapper/mapper.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include <cmath>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <grid_map_ros/grid_map_ros.hpp>
@@ -42,6 +43,8 @@ void Mapper::odometry_update(const nav_msgs::msg::Odometry::ConstSharedPtr odom)
   if (!current_node_)
   {
     graphnav::NavigationGraph::NodeProperties properties;
+    properties.trav_properties[my_trav_class_].visited = true;
+    properties.trav_properties[my_trav_class_].first_visited_time = now;
     current_node_ = graph_.add_node(odom_position, properties);
     RCLCPP_DEBUG(logger_, "created initial node: %s", current_node_->to_string().c_str());
   }
@@ -203,35 +206,30 @@ static std::vector<Eigen::Vector3d> grid_map_frontier_cells(grid_map::GridMap& g
   return frontier_cells;
 }
 
-static bool collision_check_line(const Eigen::Vector2d& a, double sdf_a, const Eigen::Vector2d& b, double sdf_b,
-                                 const grid_map::GridMap& map, std::string sdf_layer, double radius)
-{
-  if (sdf_a < radius || sdf_b < radius)
-  {
-    return true;
-  }
-  Eigen::Vector2d ab = b - a;
-  double dist = ab.norm();
-  if (dist <= map.getResolution())
-  {
-    return false;
-  }
-  if (dist < sqrt((sdf_a * sdf_a) - radius * radius) + sqrt((sdf_b * sdf_b) - radius * radius))
-  {
-    return false;
-  }
-  Eigen::Vector2d mid = (a + b) / 2;
-  double sdf_mid = map.atPosition(sdf_layer, mid);
-  return collision_check_line(a, sdf_a, mid, sdf_mid, map, sdf_layer, radius) ||
-         collision_check_line(mid, sdf_mid, b, sdf_b, map, sdf_layer, radius);
-}
-
 static bool collision_check_line(const Eigen::Vector2d& a, const Eigen::Vector2d& b, const grid_map::GridMap& map,
-                                 std::string sdf_layer, double radius)
+                                 std::string sdf_layer, double radius, double end_margin = 0.0)
 {
-  double sdf_a = map.atPosition(sdf_layer, a);
-  double sdf_b = map.atPosition(sdf_layer, b);
-  return collision_check_line(a, sdf_a, b, sdf_b, map, sdf_layer, radius);
+  const Eigen::Vector2d delta = b - a;
+  const double distance = delta.norm();
+  if (distance <= 1e-9)
+  {
+    return map.atPosition(sdf_layer, a) < radius;
+  }
+  const double checked_distance = std::max(0.0, distance - end_margin);
+  const int samples = std::max(2, static_cast<int>(
+      std::ceil(checked_distance / (0.5 * map.getResolution()))));
+  for (int index = 0; index <= samples; ++index)
+  {
+    const double ratio = static_cast<double>(index) / static_cast<double>(samples);
+    const Eigen::Vector2d point =
+        a + ratio * checked_distance / distance * delta;
+    const double clearance = map.atPosition(sdf_layer, point);
+    if (!std::isfinite(clearance) || clearance < radius)
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 void Mapper::update_edge(const graphnav::NavigationGraph::UUID& from, const graphnav::NavigationGraph::UUID& to,
@@ -253,8 +251,6 @@ void Mapper::update_edge(const graphnav::NavigationGraph::UUID& from, const grap
   {
     properties = graph_.get_edge_properties(from, to);
   }
-  double unknown_sdf_a = map.atPosition("unknown_sdf", pos_a);
-  double unknown_sdf_b = map.atPosition("unknown_sdf", pos_b);
   for (const auto& [trav_class, trav_prop] : traversability_classes_)
   {
     if (node_a.trav_properties.find(trav_class) == node_a.trav_properties.end() ||
@@ -262,8 +258,6 @@ void Mapper::update_edge(const graphnav::NavigationGraph::UUID& from, const grap
     {
       continue;  // one of the nodes doesn't have this traversability class
     }
-    double dist_a = node_a.trav_properties.at(trav_class).free_radius;
-    double dist_b = node_b.trav_properties.at(trav_class).free_radius;
     double dist_ab = (pos_a - pos_b).norm();
     if (properties.trav_properties.find(trav_class) != properties.trav_properties.end() &&
         properties.trav_properties[trav_class].traversed)
@@ -278,9 +272,9 @@ void Mapper::update_edge(const graphnav::NavigationGraph::UUID& from, const grap
       r += edge_creation_hysteresis_;
     }
     std::string sdf_layer = trav_prop.layer_name + "_sdf";
-    if (!collision_check_line(pos_a, dist_a, pos_b, dist_b, map, sdf_layer, r))
+    if (!collision_check_line(pos_a, pos_b, map, sdf_layer, r))
     {
-      if (collision_check_line(pos_a, unknown_sdf_a, pos_b, unknown_sdf_b, map, "unknown_sdf", r))
+      if (collision_check_line(pos_a, pos_b, map, "unknown_sdf", r))
       {
         continue;  // unknown is too close to assess traversability, leave unchanged
       }
@@ -538,18 +532,31 @@ void Mapper::traversability_update(const grid_map_msgs::msg::GridMap::ConstShare
     std::map<std::string, std::vector<Eigen::Vector3d>> frontier_cells;
   };
   std::map<graphnav::NavigationGraph::UUID, extracted_frontier_properties> extracted_frontiers;
+  size_t frontier_filtered_explored = 0;
+  size_t frontier_no_candidate_nodes = 0;
+  size_t frontier_no_eligible_node = 0;
+  size_t frontier_visited_only = 0;
+  size_t frontier_filtered_unassigned = 0;
+  size_t frontier_assigned = 0;
   for (const auto& frontier_cell_pos_map : frontier_cells)
   {
     Eigen::Vector3d frontier_cell_pos_graph = map2graph * frontier_cell_pos_map;
     std::optional<graphnav::NavigationGraph::UUID> closest_node;
     double closest_distance = frontier_cell_max_dist_;
     std::set<std::string> closest_traversability_classes;
-    for (const auto& node_id : graph_.get_nodes_in_radius(frontier_cell_pos_graph, frontier_cell_max_dist_))
+    const auto candidate_nodes =
+        graph_.get_nodes_in_radius(frontier_cell_pos_graph, frontier_cell_max_dist_);
+    if (candidate_nodes.empty())
+    {
+      ++frontier_no_candidate_nodes;
+    }
+    for (const auto& node_id : candidate_nodes)
     {
       Eigen::Vector3d node_pos = graph_.get_node_position(node_id);
       double distance = (node_pos - frontier_cell_pos_graph).norm();
       if (distance < graph_.get_node_properties(node_id).explored_radius - explored_radius_margin_)
       {
+        ++frontier_filtered_explored;
         closest_node.reset();  // already explored, ignore this frontier point
         break;
       }
@@ -565,7 +572,8 @@ void Mapper::traversability_update(const grid_map_msgs::msg::GridMap::ConstShare
         for (const auto& [trav_class, trav_prop] : traversability_classes_)
         {
           if (!collision_check_line(node_pos_map, frontier_cell_pos_map.head<2>(), gridmap,
-                                    trav_prop.layer_name + "_sdf", trav_prop.radius))
+                                    trav_prop.layer_name + "_sdf", trav_prop.radius,
+                                    frontier_end_margin_))
           {
             auto node_trav_prop = graph_.get_node_properties(node_id).trav_properties;
             if (node_trav_prop[trav_class].is_frontier || node_is_new)
@@ -580,22 +588,39 @@ void Mapper::traversability_update(const grid_map_msgs::msg::GridMap::ConstShare
           closest_node = node_id;
           closest_traversability_classes = traversability_classes;
         }
+        else
+        {
+          ++frontier_no_eligible_node;
+        }
       }
     }
     if (closest_node)
     {
+      ++frontier_assigned;
       // frontier point is assigned to a node
       for (auto& trav_class : closest_traversability_classes)
       {
         auto node_properties = graph_.get_node_properties(*closest_node);
         if (node_properties.trav_properties[trav_class].visited)
         {
+          ++frontier_visited_only;
           continue;  // don't add frontiers to visited nodes
         }
         extracted_frontiers[*closest_node].frontier_cells[trav_class].push_back(frontier_cell_pos_graph);
       }
     }
+    else
+    {
+      ++frontier_filtered_unassigned;
+    }
   }
+  RCLCPP_DEBUG(
+      logger_,
+      "Frontier candidates: %zu, assigned: %zu, explored filter: %zu, unassigned: %zu, "
+      "no candidates: %zu, no eligible: %zu, visited: %zu",
+      frontier_cells.size(), frontier_assigned, frontier_filtered_explored,
+      frontier_filtered_unassigned, frontier_no_candidate_nodes,
+      frontier_no_eligible_node, frontier_visited_only);
   auto duration_frontier_node_assignment = std::chrono::duration_cast<std::chrono::duration<double>>(
                                                std::chrono::high_resolution_clock::now() - start_time_frontier_update)
                                                .count() *
@@ -759,7 +784,7 @@ void Mapper::traversability_update(const grid_map_msgs::msg::GridMap::ConstShare
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start_time)
           .count() *
       1000;
-  RCLCPP_INFO(logger_, "Traversability updated in %f ms", duration_ms);
+  RCLCPP_DEBUG(logger_, "Traversability updated in %f ms", duration_ms);
 }
 
 void Mapper::pose_graph_update(const pose_graph_msgs::msg::PoseGraph::ConstSharedPtr pose_graph)

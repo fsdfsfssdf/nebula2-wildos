@@ -66,59 +66,62 @@ private:
     Eigen::Vector3d robot_pos(odom_pose_in_path_frame.pose.position.x, odom_pose_in_path_frame.pose.position.y,
                               odom_pose_in_path_frame.pose.position.z);
     std::vector<Eigen::Vector3d> path_points;
-    std::vector<double> path_robot_distances;
     for (const auto& pose : path_->poses)
     {
       path_points.push_back(Eigen::Vector3d(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z));
-      path_robot_distances.push_back((path_points.back() - robot_pos).norm());
     }
-    size_t closest_index =
-        std::min_element(path_robot_distances.begin(), path_robot_distances.end()) - path_robot_distances.begin();
-    // if last waypoint is closest, publish it
-    if (closest_index == path_->poses.size() - 1)
+
+    // Project the robot onto every path segment and start from the closest
+    // continuous point. Node-only projection gets stuck when the lookahead
+    // target lies on the same long segment.
+    size_t closest_segment = 0;
+    double closest_distance = std::numeric_limits<double>::max();
+    Eigen::Vector3d closest_point = path_points.front();
+    for (size_t index = 0; index + 1 < path_points.size(); ++index)
     {
-      auto last_pose = path_->poses.back();
-      last_pose.header.frame_id = path_->header.frame_id;
-      last_pose.header.stamp = msg->header.stamp;
-      pose_pub_->publish(last_pose);
-      return;
-    }
-    // find next waypoint past lookahead distance
-    size_t wp_index = closest_index + 1;
-    while (wp_index + 1 < path_->poses.size() && path_robot_distances[wp_index] < wp_lookahead_dist_)
-    {
-      // only increment as long as the direction is roughly the same
-      Eigen::Vector3d current_dir = (path_points[wp_index] - path_points[wp_index - 1]).normalized();
-      Eigen::Vector3d next_dir = (path_points[wp_index + 1] - path_points[wp_index]).normalized();
-      if (current_dir.dot(next_dir) < 0.5)  // more than 60 degree turn
+      const Eigen::Vector3d start = path_points[index];
+      const Eigen::Vector3d segment = path_points[index + 1] - start;
+      const double length_squared = segment.squaredNorm();
+      if (length_squared <= 1e-9)
       {
+        continue;
+      }
+      const double ratio = std::clamp(
+          (robot_pos - start).dot(segment) / length_squared, 0.0, 1.0);
+      const Eigen::Vector3d projected = start + ratio * segment;
+      const double distance = (projected - robot_pos).norm();
+      if (distance < closest_distance)
+      {
+        closest_distance = distance;
+        closest_segment = index;
+        closest_point = projected;
+      }
+    }
+
+    Eigen::Vector3d target = path_points.back();
+    Eigen::Vector3d cursor = closest_point;
+    double remaining = wp_lookahead_dist_;
+    for (size_t index = closest_segment; index + 1 < path_points.size(); ++index)
+    {
+      const Eigen::Vector3d segment_end = path_points[index + 1];
+      const Eigen::Vector3d segment = segment_end - cursor;
+      const double segment_length = segment.norm();
+      if (segment_length >= remaining)
+      {
+        target = cursor + segment / segment_length * remaining;
         break;
       }
-      wp_index++;
+      remaining -= segment_length;
+      cursor = segment_end;
     }
-    // interpolate between wp_index - 1 and wp_index  to find where distance equals wp_lookahead_dist_
-    double a = path_robot_distances[wp_index - 1] - wp_lookahead_dist_;
-    double b = path_robot_distances[wp_index] - wp_lookahead_dist_;
-    // a + wp_fraction * (b - a) = 0
-    double wp_fraction = -a / (b - a);
-    wp_fraction = std::clamp(wp_fraction, 0.0, 1.0);
+
     geometry_msgs::msg::PoseStamped pose;
     pose.header.frame_id = path_->header.frame_id;
     pose.header.stamp = msg->header.stamp;
-    pose.pose.position.x = path_->poses[wp_index].pose.position.x * wp_fraction +
-                           path_->poses[wp_index - 1].pose.position.x * (1 - wp_fraction);
-    pose.pose.position.y = path_->poses[wp_index].pose.position.y * wp_fraction +
-                           path_->poses[wp_index - 1].pose.position.y * (1 - wp_fraction);
-    pose.pose.position.z = path_->poses[wp_index].pose.position.z * wp_fraction +
-                           path_->poses[wp_index - 1].pose.position.z * (1 - wp_fraction);
-    if (wp_fraction > 0.95)
-    {
-      pose.pose.orientation = path_->poses[wp_index].pose.orientation;
-    }
-    else
-    {
-      pose.pose.orientation = path_->poses[wp_index - 1].pose.orientation;
-    }
+    pose.pose.position.x = target.x();
+    pose.pose.position.y = target.y();
+    pose.pose.position.z = target.z();
+    pose.pose.orientation = path_->poses.back().pose.orientation;
     pose_pub_->publish(pose);
   }
 

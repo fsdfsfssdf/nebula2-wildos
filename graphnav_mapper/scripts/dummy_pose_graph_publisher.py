@@ -14,6 +14,7 @@ class DummyPoseGraphPublisher(Node):
         msg = pose_graph_msgs.msg.PoseGraph()
         msg.header.frame_id = self.frame
         msg.nodes = [pose_graph_msgs.msg.Node()]
+        msg.nodes[0].pose.orientation.w = 1.0
         msg.nodes[0].uuid.id = [
             random.randint(0, 255) for _ in range(len(msg.nodes[0].uuid.id))
         ]

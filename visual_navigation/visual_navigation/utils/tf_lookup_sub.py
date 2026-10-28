@@ -55,6 +55,12 @@ class TFLookupSubscriber(Node, ABC):
                 durability=DurabilityPolicy.VOLATILE,
                 history=HistoryPolicy.KEEP_LAST,
             ),
+            static_qos = QoSProfile(
+                depth=config.qos_history_depth,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                history=HistoryPolicy.KEEP_LAST,
+            ),
             spin_thread=config.spin_thread
         )
 
@@ -120,7 +126,9 @@ class TFLookupSubscriber(Node, ABC):
             
             if self.oldest_time_processed is None or self.oldest_time_processed < valid_ts:
                 self.oldest_time_processed = valid_ts
-                self.get_logger().info(f"TF found for camera frames at time {valid_ts}")
+                self.get_logger().debug(
+                    f"TF found for camera frames at time {valid_ts}"
+                )
                 self.do_processing(valid_msg, valid_tfs)
                 if self.clear_buffer_on_process:
                     self.msg_buffer.clear()
@@ -128,7 +136,9 @@ class TFLookupSubscriber(Node, ABC):
                 self.get_logger().warn(f"Already processed TF for time {valid_ts}, skipping processing.")
                 self.msg_buffer.pop_oldest_msg()
         else:
-            self.get_logger().warn("Message buffer is empty, waiting for messages...")
+            self.get_logger().debug(
+                "Message buffer is empty, waiting for messages..."
+            )
 
     def fetch_cam_intrinsics_extrinsics(self, cam_info, tf_world_from_cam):
         """

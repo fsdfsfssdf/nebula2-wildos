@@ -57,6 +57,7 @@ class ObjectMaskTriangulator(Node):
         # Triangulation config
         "max_views": 350,  # Maximum number of cameras to initialize
         "min_lidar_points": 150,  # Minimum number of lidar points in the object mask for triangulation
+        "min_view_lidar_points": 80,  # Minimum support to add a multi-view sample
         "min_view_distance": 1.0,  # Minimum distance between camera views to consider them different
         "particle_generator_config": {
             "num_particles": 1000, # Number of particles to generate
@@ -85,6 +86,7 @@ class ObjectMaskTriangulator(Node):
         self.views = []
         self.max_views = config.max_views
         self.min_lidar_points = config.min_lidar_points
+        self.min_view_lidar_points = config.min_view_lidar_points
         self.min_view_distance = config.min_view_distance
         self.use_mask_for_projection = config.use_mask_for_projection
 
@@ -93,6 +95,7 @@ class ObjectMaskTriangulator(Node):
         self.triangulated_position = None
         self.prev_view_pos = None
         self.found_lidar_in_mask = False
+        self.lidar_points_in_mask = [0] * self.num_cameras
 
         # Subscribers and Publishers
         self.init_publishers(config)
@@ -214,7 +217,8 @@ class ObjectMaskTriangulator(Node):
             cam_data = {}
             cam_frame = self.cam_tf_frame.format(CAMERA_MAPPING[cam_id])
 
-            assert camera_infos[cam_id].header.frame_id[1:] == cam_frame, \
+            camera_info_frame = camera_infos[cam_id].header.frame_id.lstrip("/")
+            assert camera_info_frame == cam_frame, \
                 f"CameraInfo frame_id {camera_infos[cam_id].header.frame_id} does not match expected {cam_frame}"
             
             assert camera_tfs[cam_id].child_frame_id == cam_frame, \
@@ -251,12 +255,16 @@ class ObjectMaskTriangulator(Node):
         # Check if lidar points fall within the mask
         lidar_points_3d = point_cloud2.read_points(lidar_msg, field_names=("x", "y", "z"), skip_nans=True)
         lidar_points_3d = np.array([np.array(list(pt)) for pt in lidar_points_3d])  # Nx3
+        lidar_points_3d = lidar_points_3d[
+            np.isfinite(lidar_points_3d).all(axis=1)
+        ]
 
         for cam_id in range(self.num_cameras):
             
             cam_name = CAMERA_MAPPING[cam_id]
             cam_frame =  all_cam_data[cam_id]["frame_id"]
             cam_obj_mask = all_cam_data[cam_id]["object_mask"]  # HxW
+            self.lidar_points_in_mask[cam_id] = 0
             h = all_cam_data[cam_id]["height"]
             w = all_cam_data[cam_id]["width"]
             if cam_obj_mask.shape[0] != h or cam_obj_mask.shape[1] != w:
@@ -309,6 +317,11 @@ class ObjectMaskTriangulator(Node):
             # consider points lying inside the object mask
             inside_mask = cam_obj_mask[lidar_pix[:, 1], lidar_pix[:, 0]].astype(bool)
             lidar_points_cam = lidar_points_cam[inside_mask]
+            self.lidar_points_in_mask[cam_id] = lidar_points_cam.shape[0]
+            self.get_logger().info(
+                f"LiDAR points inside {cam_name} object mask: "
+                f"{lidar_points_cam.shape[0]}"
+            )
 
             if lidar_points_cam.shape[0] < self.min_lidar_points:
                 self.get_logger().info(f"Not enough lidar points found in object mask for camera {cam_name}, skipping...")
@@ -340,6 +353,16 @@ class ObjectMaskTriangulator(Node):
 
             if np.sum(cam_data["object_mask"]) == 0:
                 self.get_logger().info(f"No object detected in camera {cam_name}, skipping...")
+                continue
+            if (
+                self.lidar_points_in_mask[cam_id]
+                < self.min_view_lidar_points
+            ):
+                self.get_logger().info(
+                    f"Object mask in camera {cam_name} has only "
+                    f"{self.lidar_points_in_mask[cam_id]} LiDAR points; "
+                    "not adding a multi-view sample."
+                )
                 continue
             
             bbox = cv2.boundingRect(cam_data["object_mask"].astype(np.uint8))

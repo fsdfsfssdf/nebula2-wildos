@@ -1,10 +1,10 @@
 # Robot Parameters
 num_cameras: 3
-parent_frame: "spot1/odom"
-cam_frame: "spot1/realsense/{}_color_optical_frame"
-lidar_frame: "spot1/ouster/front/os_lidar"
+parent_frame: "odom"
+cam_frame: "wildos_rover/base_link/{}_camera"
+lidar_frame: "wildos_rover/base_link/lidar"
 object_mask_topic: "/spot1/object_mask"
-lidar_topic: "/spot1/ouster/front/points_filtered"
+lidar_topic: "/spot1/points"
 
 # Publisher topics
 triangulated_object_topic: "/spot1/triangulated_object"
@@ -18,7 +18,13 @@ syncsub_slop: 0.2
 
 # Triangulation config
 max_views: 350
-min_lidar_points: 150
+# The 128-line simulation LiDAR produces about 100-140 returns on the
+# partially occluded red house.  Requiring 150 forced a multi-view estimate
+# that drifted to (38, 13) in the terrain run even though the LiDAR-supported
+# pixels were already on the target.  Keep a conservative floor above the
+# 80-point multi-view sample gate.
+min_lidar_points: 100
+min_view_lidar_points: 80
 min_view_distance: 1.0
 particle_generator_config:
   num_particles: 1000

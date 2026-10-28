@@ -1,5 +1,6 @@
 import rclpy
 
+import os
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import CompressedImage, Image as ImageMsg, CameraInfo
 from message_filters import ApproximateTimeSynchronizer, Subscriber
@@ -23,6 +24,29 @@ from explorfm import ExploRFMInference
 from visual_navigation.utils.object_search_utils import localize_query, get_objectmask_msg
 
 HOME_DIR = Path.home()
+
+
+def resolve_checkpoint_path(value: str) -> str:
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return str(path)
+    candidates = [
+        HOME_DIR / "ckpts" / path,
+        Path(
+            os.environ.get(
+                "WILDOS_ROOT",
+                str(HOME_DIR / "cfy" / "nebula2-wildos"),
+            )
+        )
+        / "ckpts"
+        / path,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return str(candidates[-1])
+
+
 CAMERA_MAPPING = {
     0: "front",
     1: "left",
@@ -219,14 +243,21 @@ class WildOS_Nav(TFLookupSubscriber):
 
         if do_object_search and config.adaptor_version is None:
             config.adaptor_version = "siglip2"
+        adaptor_ckpt_path = None
+        if config.adaptor_version is not None:
+            adaptor_ckpt_path = resolve_checkpoint_path(
+                config.adaptor_version
+            )
 
         # radio model
         self.model = ExploRFMInference(
-            frontier_ckpt=HOME_DIR / "ckpts" / config.frontier_ckpt,
-            traversability_ckpt=HOME_DIR / "ckpts" / config.traversability_ckpt,
+            frontier_ckpt=resolve_checkpoint_path(config.frontier_ckpt),
+            traversability_ckpt=resolve_checkpoint_path(
+                config.traversability_ckpt
+            ),
             model_version=config.model_version,
             adaptor_version=config.adaptor_version,
-            adaptor_ckpt_path=HOME_DIR / "ckpts",
+            adaptor_ckpt_path=adaptor_ckpt_path,
             use_naclip=config.use_naclip,
             use_summary_for_spatial=config.use_summary_for_spatial,
             radio_dim=config.radio_dim,
@@ -311,7 +342,7 @@ class WildOS_Nav(TFLookupSubscriber):
     
     def listener_callback(self, odom_msg, navgraph_msg, *msgs):
         self.clbk_cntr += 1
-        self.get_logger().info(f"Received callback {self.clbk_cntr}")
+        self.get_logger().debug(f"Received callback {self.clbk_cntr}")
 
         assert odom_msg.header.frame_id == self.global_frame, \
             f"Odom frame {odom_msg.header.frame_id} does not match global frame {self.global_frame}"
@@ -329,8 +360,6 @@ class WildOS_Nav(TFLookupSubscriber):
 
     def do_processing(self, msg, tf_data):
         
-        print(f"Started Heavy")
-
         # Extract messages
         odom_msg = msg["odom"]
         navgraph_msg = msg["navgraph"]
@@ -390,6 +419,26 @@ class WildOS_Nav(TFLookupSubscriber):
                 pixel_level_seg=self.pixel_level_seg,
                 mask_threshold=self.mask_threshold
             )
+
+            query_lower = str(self.text_queries[0]).lower()
+            if "red" in query_lower:
+                for cam_idx, rgb_img in enumerate(rgb_imgs):
+                    mask = binary_mask[cam_idx, 0].astype(bool)
+                    if not np.any(mask):
+                        continue
+                    mean_rgb = rgb_img[mask].mean(axis=0)
+                    red_dominant = (
+                        mean_rgb[0] > 60.0
+                        and mean_rgb[0] > 2.0 * mean_rgb[1]
+                        and mean_rgb[0] > 2.0 * mean_rgb[2]
+                    )
+                    if not red_dominant:
+                        binary_mask[cam_idx, 0] = 0
+                        self.get_logger().info(
+                            f"Rejected non-red mask in camera "
+                            f"{CAMERA_MAPPING[cam_idx]}: "
+                            f"mean RGB={mean_rgb.round(1).tolist()}"
+                        )
 
             if np.sum(binary_mask) > 0:
                 tf_list = [tf_data[f"world_from_cam{i}"] for i in range(self.num_cameras)]
@@ -468,8 +517,6 @@ class WildOS_Nav(TFLookupSubscriber):
             )
         )
         
-        print(f"Finished Heavy")
-
     def remove_old_frontiers(self, navgraph_msg):
         # Remove frontiers that are no longer in the navgraph
         trav_class_idx = navgraph_msg.trav_classes.index(self.traversability_class)

@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from launch import LaunchDescription
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -6,10 +9,19 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 
 def generate_launch_description():
+    wildos_root = Path(
+        os.environ.get(
+            "WILDOS_ROOT",
+            str(Path.home() / "cfy" / "nebula2-wildos"),
+        )
+    )
+    venv_python = wildos_root / ".venv_ros" / "bin" / "python3"
+    python_prefix = f"{venv_python} " if venv_python.exists() else None
     use_sim_time = LaunchConfiguration('use_sim_time')
     ns = LaunchConfiguration('ns')
     do_object_search = LaunchConfiguration('do_object_search')
     log_level = LaunchConfiguration('log_level')
+    config = LaunchConfiguration('config')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -32,14 +44,20 @@ def generate_launch_description():
             default_value='INFO',
             description='Logging level (DEBUG, INFO, WARN, ERROR, FATAL)'
         ),
+        DeclareLaunchArgument(
+            'config',
+            default_value='wildos_nav_conf.yaml',
+            description='WildOS YAML configuration file'
+        ),
 
         # Always launch wildos
         Node(
             package='visual_navigation',
             executable='wildos',
+            prefix=python_prefix,
             output='screen',
             arguments=[
-                '--config', 'wildos_nav_conf.yaml',
+                '--config', config,
                 '--do_object_search', do_object_search,
                 '--ros-args', '--log-level', log_level
             ],
@@ -56,6 +74,7 @@ def generate_launch_description():
         Node(
             package='visual_navigation',
             executable='obj_mask_triangulation',
+            prefix=python_prefix,
             output='screen',
             arguments=[
                 '--ros-args', '--log-level', log_level

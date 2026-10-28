@@ -97,7 +97,10 @@ Eigen::Isometry3d NavigationGraph::get_node_reference(const NavigationGraph::UUI
   auto reference = pose_graph_.node_pose(node.pose_graph_node_id);
   if (!reference)
   {
-    throw std::runtime_error("Node pose not found in pose graph");
+    // The reference frame can be briefly unavailable right after a pose
+    // graph update. Degrade to identity instead of throwing out of a
+    // callback, which used to abort the whole mapper process.
+    return Eigen::Isometry3d::Identity();
   }
   return *reference;
 }
@@ -108,7 +111,9 @@ Eigen::Vector3d NavigationGraph::get_node_position(const NavigationGraph::UUID& 
   auto reference = pose_graph_.node_pose(node.pose_graph_node_id);
   if (!reference)
   {
-    throw std::runtime_error("Node pose not found in pose graph");
+    // Same degradation as above: the stored offset is still a usable
+    // estimate of where the node sits.
+    return node.rel_position;
   }
   return *reference * node.rel_position;
 }

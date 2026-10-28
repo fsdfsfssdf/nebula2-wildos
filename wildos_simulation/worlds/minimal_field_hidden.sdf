@@ -1,0 +1,164 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="wildos_minimal_field">
+    <gravity>0 0 -9.8</gravity>
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+
+    <scene>
+      <ambient>0.8 0.8 0.8</ambient>
+      <background>0.55 0.75 0.95</background>
+      <grid>true</grid>
+    </scene>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 20 0 0 0</pose>
+      <diffuse>1.0 1.0 1.0 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+
+    <model name="ground">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+          <material>
+            <ambient>0.35 0.45 0.25 1</ambient>
+            <diffuse>0.35 0.45 0.25 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="road">
+      <static>true</static>
+      <pose>15 0 0.015 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>35 5 0.03</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>35 5 0.03</size></box></geometry>
+          <material>
+            <ambient>0.30 0.30 0.30 1</ambient>
+            <diffuse>0.30 0.30 0.30 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="left_fence">
+      <static>true</static>
+      <pose>12 4 0.7 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>24 0.15 1.4</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>24 0.15 1.4</size></box></geometry>
+          <material><ambient>0.75 0.55 0.25 1</ambient><diffuse>0.75 0.55 0.25 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="right_fence_a">
+      <static>true</static>
+      <pose>7 -4 0.7 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>10 0.15 1.4</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>10 0.15 1.4</size></box></geometry>
+          <material><ambient>0.75 0.55 0.25 1</ambient><diffuse>0.75 0.55 0.25 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="right_fence_b">
+      <static>true</static>
+      <pose>23 -4 0.7 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>14 0.15 1.4</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>14 0.15 1.4</size></box></geometry>
+          <material><ambient>0.75 0.55 0.25 1</ambient><diffuse>0.75 0.55 0.25 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="dead_end_barrier">
+      <static>true</static>
+      <pose>22 7 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.5 7 2.0</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.5 7 2.0</size></box></geometry>
+          <material><ambient>0.34 0.34 0.34 1</ambient><diffuse>0.34 0.34 0.34 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="hidden_target_occluder">
+      <static>true</static>
+      <pose>10 6.5 2.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.5 9 5</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.5 9 5</size></box></geometry>
+          <material>
+            <ambient>0.45 0.45 0.45 1</ambient>
+            <diffuse>0.45 0.45 0.45 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="target_house">
+      <static>true</static>
+      <pose>28 8 1.5 0 0 0.4</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>4 4 3</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>4 4 3</size></box></geometry>
+          <material><ambient>0.85 0.06 0.04 1</ambient><diffuse>0.85 0.06 0.04 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="target_tree">
+      <static>true</static>
+      <pose>14 -8 2.0 0 0 0</pose>
+      <link name="trunk">
+        <collision name="collision"><geometry><cylinder><radius>0.30</radius><length>4</length></cylinder></geometry></collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.30</radius><length>4</length></cylinder></geometry>
+          <material><ambient>0.35 0.20 0.08 1</ambient><diffuse>0.35 0.20 0.08 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="crown">
+        <pose>0 0 2.2 0 0 0</pose>
+        <collision name="collision"><geometry><sphere><radius>1.8</radius></sphere></geometry></collision>
+        <visual name="visual">
+          <geometry><sphere><radius>1.8</radius></sphere></geometry>
+          <material><ambient>0.10 0.45 0.10 1</ambient><diffuse>0.10 0.45 0.10 1</diffuse></material>
+        </visual>
+      </link>
+      <joint name="crown_joint" type="fixed"><parent>trunk</parent><child>crown</child></joint>
+    </model>
+  </world>
+</sdf>

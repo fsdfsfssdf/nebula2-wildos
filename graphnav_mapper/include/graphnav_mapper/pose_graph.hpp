@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <optional>
 #include <pose_graph_msgs/msg/pose_graph.hpp>
 #include <unordered_map>
@@ -37,6 +38,7 @@ public:
 
   bool valid() const
   {
+    std::lock_guard<std::mutex> lock(mutex_);
     return graph_ != nullptr;
   }
 
@@ -60,21 +62,33 @@ public:
     {
       throw std::invalid_argument("Current node not in pose graph");
     }
+    // graph_ and nodes_ describe the same message and are read from
+    // several callbacks, so the pair must be swapped under one lock.
+    // Assigning them separately let a reader observe a valid graph with
+    // an empty node map, which threw mid-callback and aborted the node.
+    std::lock_guard<std::mutex> lock(mutex_);
     graph_ = pose_graph;
     nodes_ = std::move(map);
   }
 
   const pose_graph_msgs::msg::PoseGraph::ConstSharedPtr graph() const
   {
+    std::lock_guard<std::mutex> lock(mutex_);
     return graph_;
   }
   pose_graph_msgs::msg::UUID current_node() const
   {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (graph_ == nullptr)
+    {
+      return pose_graph_msgs::msg::UUID();
+    }
     return graph_->current_node;
   }
   std::optional<Eigen::Transform<double, 3, Eigen::Isometry>>
   node_pose(const pose_graph_msgs::msg::UUID& node_uuid) const
   {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (nodes_.find(node_uuid) == nodes_.end())
     {
       return std::nullopt;
@@ -89,6 +103,7 @@ public:
   }
 
 private:
+  mutable std::mutex mutex_;
   pose_graph_msgs::msg::PoseGraph::ConstSharedPtr graph_;
   std::unordered_map<pose_graph_msgs::msg::UUID, const pose_graph_msgs::msg::Node*> nodes_;
 };

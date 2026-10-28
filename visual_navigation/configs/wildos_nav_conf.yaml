@@ -1,7 +1,7 @@
 # Model Params
 frontier_ckpt: frontier_head.ckpt
 traversability_ckpt: trav_head.ckpt
-model_version: c-radio_v3-b
+model_version: /home/admin1/ckpts/c-radio_v3-b_half.pth.tar
 adaptor_version: null
 use_naclip: true
 use_summary_for_spatial: true
@@ -11,7 +11,7 @@ model_precision: FP16
 
 # Nav Params
 num_cameras: 3
-cams_inverted: true
+cams_inverted: false
 num_angular_bins: 16
 reach_in_2D: true
 
@@ -36,9 +36,9 @@ reach_scale: 0.25
 compute_paths: true
 
 # ROS2 frames and topics
-parent_frame: spot1/odom
-cam_frame: spot1/realsense/{}_color_optical_frame
-camera_img_topic: /spot1/realsense/{}/color/image_raw/compressed
+parent_frame: wildos_rover/odom
+cam_frame: wildos_rover/base_link/{}_camera
+camera_img_topic: /spot1/realsense/{}/color/image_raw
 camera_info_topic: /spot1/realsense/{}/color/camera_info
 odometry_topic: /spot1/odom
 navigation_graph_topic: /spot1/nav_graph
@@ -58,7 +58,7 @@ syncsub_slop: 0.2
 # Object Search Config
 object_search_config:
     text_queries:
-        - "NASA logo"
+        - "red house"
     pixel_level_seg: false
     mask_threshold: 0.09
     obj_frontier_score: 0.9
@@ -71,6 +71,6 @@ tf_lookup_config:
     timer_duration: 0.1
     lookup_timeout: 0
     qos_history_depth: 1
-    wait_for_oldest: true
+    wait_for_oldest: false
     clear_buffer_on_process: true
     spin_thread: false

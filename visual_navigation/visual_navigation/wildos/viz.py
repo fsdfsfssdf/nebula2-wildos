@@ -537,9 +537,26 @@ class VisualizeGoalAgnosticGeoFrontierScoring(VisualizeGeoFrontierScoring):
             geo_frontiers = nav_data[i]["geo_frontiers"] * self.fig_resize_factor
             cam_heading = all_cam_data[i]["R_wc"].astype(np.float32) @ np.array([0, 0, 1], dtype=np.float32)
             cam_heading = cam_heading[:2]
-            cam_heading = cam_heading / np.linalg.norm(cam_heading)
+            heading_norm = np.linalg.norm(cam_heading)
+            if not np.isfinite(heading_norm) or heading_norm < 1e-6:
+                dummy_img = path_overlay
+                cv2.putText(
+                    dummy_img,
+                    "Invalid Camera Heading",
+                    (20, dummy_img.shape[0]//2),
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    0.45,
+                    (0,0,0),
+                    1
+                )
+                img_grid[(3, plt_idx)] = (dummy_img, "Frontier Nodes")
+                continue
+            cam_heading = cam_heading / heading_norm
             cam_angle = np.arctan2(cam_heading[1], cam_heading[0])
-            goal_heading = cam_angle + self.goal_cam_relative_headings
+            goal_heading = np.mod(
+                cam_angle + self.goal_cam_relative_headings,
+                2 * np.pi,
+            )
             heading_bin = int(goal_heading / self.discretization_angle) % len(self.bin_starts)
 
             scores = nav_data[i]["scores"]

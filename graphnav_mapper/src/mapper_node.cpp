@@ -61,12 +61,22 @@ public:
     , tf_listener_(tf_buffer_, this)
     , mapper_(tf_buffer_, this->get_logger())
   {
+    mapper_.frontier_end_margin_ =
+        this->declare_parameter<double>("frontier_end_margin", 0.0);
     dbg_map_pub_ = this->create_publisher<grid_map_msgs::msg::GridMap>("dbg_map", 10);
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "odometry", 10, [this](const nav_msgs::msg::Odometry::ConstSharedPtr msg) {
           if (pose_graph_received_)
           {
-            this->mapper_.odometry_update(msg);
+            try
+            {
+              this->mapper_.odometry_update(msg);
+            }
+            catch (const std::exception& e)
+            {
+              RCLCPP_ERROR(
+                  this->get_logger(), "odometry update failed: %s", e.what());
+            }
           }
         });
     traversability_sub_ = this->create_subscription<grid_map_msgs::msg::GridMap>(
@@ -127,7 +137,15 @@ private:
       {
         dbg_map = std::make_shared<grid_map_msgs::msg::GridMap>();
       }
-      this->mapper_.traversability_update(msg, dbg_map);
+      try
+      {
+        this->mapper_.traversability_update(msg, dbg_map);
+      }
+      catch (const std::exception& e)
+      {
+        RCLCPP_ERROR(
+            this->get_logger(), "traversability update failed: %s", e.what());
+      }
       if (dbg_map)
       {
         dbg_map_pub_->publish(*dbg_map);

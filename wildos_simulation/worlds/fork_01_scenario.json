@@ -1,0 +1,107 @@
+{
+  "name": "fork_01",
+  "world": "fork_01.sdf",
+  "seed": 11,
+  "spawn": {
+    "x": 0.0,
+    "y": 0.0,
+    "yaw": 0.0
+  },
+  "target": {
+    "type": "red_house",
+    "xy": [
+      23.626,
+      14.012
+    ],
+    "size": [
+      4.0,
+      4.0,
+      3.0
+    ]
+  },
+  "hidden_from_spawn": true,
+  "visible_from_fork": true,
+  "fork_point": [
+    13.0,
+    0.0
+  ],
+  "ribbons": [
+    {
+      "name": "trunk",
+      "origin": [
+        -2.0,
+        0.0
+      ],
+      "heading_deg": 0.0,
+      "length_m": 17.0,
+      "half_width_m": 2.2,
+      "end": [
+        15.0,
+        0.0
+      ]
+    },
+    {
+      "name": "branch_a",
+      "origin": [
+        13.0,
+        0.0
+      ],
+      "heading_deg": 38.0,
+      "length_m": 17.0,
+      "half_width_m": 1.7,
+      "end": [
+        26.396,
+        10.466
+      ]
+    },
+    {
+      "name": "branch_b",
+      "origin": [
+        13.0,
+        0.0
+      ],
+      "heading_deg": -35.0,
+      "length_m": 12.0,
+      "half_width_m": 1.7,
+      "end": [
+        22.83,
+        -6.883
+      ]
+    }
+  ],
+  "blocker": {
+    "type": "parked_car",
+    "xy": [
+      20.372,
+      -5.162
+    ]
+  },
+  "occluders": [
+    {
+      "name": "sight_blocker",
+      "xy": [
+        9.0,
+        5.5
+      ],
+      "size": [
+        5.0,
+        5.0,
+        5.0
+      ]
+    },
+    {
+      "name": "backdrop_block",
+      "xy": [
+        31.0,
+        16.0
+      ],
+      "size": [
+        6.0,
+        6.0,
+        4.5
+      ]
+    }
+  ],
+  "straight_line_spawn_to_target_m": 27.468,
+  "expected_behaviour": "drive to the fork, prefer branch A (target direction), ignore branch B which ends at a parked car"
+}

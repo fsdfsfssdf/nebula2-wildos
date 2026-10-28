@@ -1,0 +1,28 @@
+zones:
+  - radius: 10.0
+    resolution: 0.1
+
+robot:
+  namespace: spot1
+  base_frame: wildos_rover/base_link
+  odom_frame: odom
+
+cameras:
+  front:
+    frame: wildos_rover/base_link/front_camera
+    image: /spot1/realsense/front/color/image_raw
+    camera_info: /spot1/realsense/front/color/camera_info
+  left:
+    frame: wildos_rover/base_link/left_camera
+    image: /spot1/realsense/left/color/image_raw
+    camera_info: /spot1/realsense/left/color/camera_info
+  right:
+    frame: wildos_rover/base_link/right_camera
+    image: /spot1/realsense/right/color/image_raw
+    camera_info: /spot1/realsense/right/color/camera_info
+
+sensors:
+  lidar_frame: wildos_rover/base_link/lidar
+  imu_frame: wildos_rover/base_link/imu
+  pointcloud: /spot1/points
+  imu: /spot1/imu

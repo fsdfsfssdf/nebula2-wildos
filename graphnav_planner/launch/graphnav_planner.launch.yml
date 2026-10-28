@@ -17,6 +17,15 @@ launch:
       default: $(var remap_ros_topics_to_ns)
       description: "Remap tf/tf_static to namespace"
 
+  - node:
+      pkg: "wildos_simulation"
+      exec: "object_goal_adapter.py"
+      name: "object_goal_adapter"
+      output: screen
+      namespace: $(var ns)
+      param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
 
   - node:
       pkg: "graphnav_planner"
@@ -50,7 +59,7 @@ launch:
         - from: "~/odom"
           to: "odom"
         - from: "~/goal_pose"
-          to: "imgnav_waypoint"
+          to: "task_goal_pose"
         # - from: "~/path"
         #   to: "graph_nav_path"
         # namespaced default ros topics

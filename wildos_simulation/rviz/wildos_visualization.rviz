@@ -1,0 +1,222 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: World grid
+      Cell Size: 1
+      Plane Cell Count: 80
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/TF
+      Enabled: false
+      Name: Frames
+      Show Names: true
+      Marker Scale: 0.8
+    - Class: rviz_default_plugins/RobotModel
+      Enabled: false
+      Name: D1H model
+      Alpha: 1
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_description
+      Visual Enabled: true
+    - Class: rviz_default_plugins/Map
+      Enabled: false
+      Name: Local traversable occupancy
+      Alpha: 0.35
+      Color Scheme: costmap
+      Draw Behind: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/local_map
+    - Class: grid_map_rviz_plugin/GridMap
+      Enabled: true
+      Name: ExploRFM traversability map
+      Alpha: 0.58
+      Color Layer: traversability
+      Height Layer: elevation
+      Color Transformer: IntensityLayer
+      Use Rainbow: true
+      Invert Rainbow: false
+      Autocompute Intensity Bounds: false
+      Min Intensity: 0
+      Max Intensity: 1
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/traversability_map
+    - Class: grid_map_rviz_plugin/GridMap
+      Enabled: false
+      Name: Navigation obstacle cost
+      Alpha: 0.55
+      Color Layer: traversability
+      Height Layer: elevation
+      Color Transformer: IntensityLayer
+      Use Rainbow: true
+      Invert Rainbow: false
+      Autocompute Intensity Bounds: false
+      Min Intensity: 0
+      Max Intensity: 1
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/navigation_cost_map
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Topological navigation graph
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/nav_graph_viz
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Geometric frontiers
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/within_range_geofrontiers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Frontier heading scores
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/score_rings
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: Sparse graph path
+      Alpha: 1
+      Buffer Length: 1
+      Color: 0; 255; 80
+      Line Style: Lines
+      Line Width: 0.08
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/graphnav_path
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: Multi-view object particles
+      Alpha: 0.35
+      Color Transformer: RGB8
+      Position Transformer: XYZ
+      Size (Pixels): 3
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/object_hypotheses
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Triangulated target
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/triangulated_object
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: false
+      Name: Raw LiDAR
+      Alpha: 0.7
+      Color Transformer: Intensity
+      Position Transformer: XYZ
+      Size (Pixels): 2
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /spot1/points
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: Front camera
+      Topic:
+        Depth: 3
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /spot1/realsense/front/color/image_raw
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: Left camera
+      Topic:
+        Depth: 3
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /spot1/realsense/left/color/image_raw
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: Right camera
+      Topic:
+        Depth: 3
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /spot1/realsense/right/color/image_raw
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: ExploRFM overlays
+      Topic:
+        Depth: 3
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /spot1/model_visualization
+  Enabled: true
+  Global Options:
+    Background Color: 28; 30; 34
+    Fixed Frame: odom
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 24
+      Focal Point:
+        X: 12
+        Y: 2
+        Z: 0
+      Name: Current View
+      Pitch: 0.75
+      Target Frame: <Fixed Frame>
+      Yaw: 1.15
+Window Geometry:
+  Height: 1080
+  Width: 1920

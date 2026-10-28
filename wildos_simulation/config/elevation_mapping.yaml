@@ -1,0 +1,18 @@
+/elevation_mapping_node:
+  ros__parameters:
+    map_frame: "odom"
+    base_frame: "wildos_rover/base_link"
+    corrected_map_frame: "odom"
+    initialize_frame_id: ["wildos_rover/base_link"]
+    initialize_tf_offset: [0.0]
+
+    subscribers:
+      lidar:
+        topic_name: "/spot1/points"
+        data_type: "pointcloud"
+
+    publishers:
+      elevation_map:
+        layers: ["elevation", "variance", "traversability", "is_valid"]
+        basic_layers: ["elevation"]
+        fps: 5.0

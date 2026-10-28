@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <graaflib/graph.h>
 #include <graaflib/algorithm/shortest_path/dijkstra_shortest_path.h>
+#include <cmath>
 #include <unordered_map>
 #include <map>
 
@@ -43,6 +44,45 @@ void Planner::update_graph(graphnav_msgs::msg::NavigationGraph::ConstSharedPtr g
     }
   }
   current_node_idx_ = graph->current_node_idx;
+  std::vector<size_t> degree(graph->nodes.size(), 0);
+  for (const auto& edge : graph->edges)
+  {
+    if (trav_class_idx_ < edge.traversability.size())
+    {
+      ++degree[edge.from_idx];
+      ++degree[edge.to_idx];
+    }
+  }
+  if (degree[current_node_idx_] == 0)
+  {
+    const auto& current_pos = graph->nodes[current_node_idx_].pose.position;
+    double best_distance = std::numeric_limits<double>::max();
+    std::optional<size_t> best_connected;
+    for (size_t index = 0; index < graph->nodes.size(); ++index)
+    {
+      if (degree[index] == 0)
+      {
+        continue;
+      }
+      const auto& position = graph->nodes[index].pose.position;
+      const double distance = std::hypot(
+          position.x - current_pos.x, position.y - current_pos.y);
+      if (distance < best_distance)
+      {
+        best_distance = distance;
+        best_connected = index;
+      }
+    }
+    if (best_connected)
+    {
+      RCLCPP_DEBUG(
+          logger_,
+          "Current graph node is isolated; planning from nearest connected "
+          "node %zu at %.2f m",
+          *best_connected, best_distance);
+      current_node_idx_ = *best_connected;
+    }
+  }
   unexplored_space_map_ = compute_unexplored_space_map();
 }
 
@@ -95,6 +135,7 @@ std::vector<Eigen::Vector3d> Planner::plan_to_goal(Eigen::Vector3d& goal, double
 
   std::vector<graaf::vertex_id_t> local_scored_frontiers;
   bool is_scored_graph = true;
+  size_t goal_links = 0;
 
   for (const auto& [id, node] : graph_.get_vertices())
   {
@@ -173,6 +214,7 @@ std::vector<Eigen::Vector3d> Planner::plan_to_goal(Eigen::Vector3d& goal, double
     {
       double goal_cost = goal_dist_cost_factor_ * node_goal_dist;
       graph_.add_edge(id, virtual_goal, goal_cost);
+      ++goal_links;
     }
   }
   
@@ -207,6 +249,11 @@ std::vector<Eigen::Vector3d> Planner::plan_to_goal(Eigen::Vector3d& goal, double
   }
 
   auto path = graaf::algorithm::dijkstra_shortest_path(graph_, current_node_idx_, virtual_goal);
+  RCLCPP_DEBUG(
+      logger_,
+      "Planner graph: vertices=%zu current=%zu goal_links=%zu path=%s",
+      graph_.get_vertices().size(), static_cast<size_t>(current_node_idx_),
+      goal_links, path ? "found" : "none");
   std::vector<Eigen::Vector3d> path_points;
   bool has_frontier_in_path = false;
   if (path)
@@ -242,7 +289,7 @@ std::vector<Eigen::Vector3d> Planner::plan_to_goal(Eigen::Vector3d& goal, double
   if (!has_frontier_in_path)
   {
     latest_frontier_.reset();
-    RCLCPP_WARN(logger_, "NO FRONTIER IN PATH!!!!!");
+    RCLCPP_DEBUG(logger_, "No frontier in planned path");
   }
 
   graph_.remove_vertex(virtual_goal);
